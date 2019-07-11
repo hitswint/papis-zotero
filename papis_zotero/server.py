@@ -18,6 +18,7 @@ import papis.crossref
 import urllib.request
 import urllib.error
 
+import os
 import re
 import json
 import logging
@@ -37,6 +38,7 @@ papis_translation = {
     'DOI': 'doi',
     'itemType': 'type',
     'ISBN': 'isbn',
+    'creators': 'author',
 }
 
 
@@ -104,6 +106,10 @@ def zotero_data_to_papis_data(item):
 
     # still get all information from zotero
     data.update(item)
+
+    if data.get('author'):
+        author_list = [author.get('lastName') + ", " + author.get('firstName') for author in data['author']]
+        data['author'] = " and ".join(author_list)
 
     # and also get all infromation from crossref
     if data.get('doi'):
@@ -240,10 +246,14 @@ class PapisRequestHandler(http.server.BaseHTTPRequestHandler):
             if len(files) == 0:
                 logger.warning('Not adding any attachments...')
             logger.info("Adding paper")
-            papis.commands.add.run(
-                files,
-                data=papis_item
-            )
+            # papis.commands.add.run(
+            #     files,
+            #     data=papis_item
+            # )
+            print(papis_item)
+            bibtex_doc = papis.document.Document(data=papis_item)
+            bibtex_string = papis.document.to_bibtex(bibtex_doc)
+            os.system("echo \"{}\" >> ~/.bib/papis.bib".format(bibtex_string))
 
         self.send_response(201)  # Created
         self.set_zotero_headers()

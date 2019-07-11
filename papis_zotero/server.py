@@ -111,6 +111,8 @@ def zotero_data_to_papis_data(item):
         author_list = [author.get('lastName') + ", " + author.get('firstName') for author in data['author']]
         data['author'] = " and ".join(author_list)
 
+    ref = data.get('author') + data.get('date') + data.get('title')
+    data['ref'] = ref.replace(" ", "_")
     # and also get all infromation from crossref
     if data.get('doi'):
         crossref_data = papis.crossref.doi_to_data(data['doi'])

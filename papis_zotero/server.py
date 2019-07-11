@@ -8,6 +8,7 @@ into papis.
 """
 
 import papis_zotero.utils
+import papis_zotero.tools
 
 import papis.api
 import papis.config
@@ -36,7 +37,7 @@ papis_translation = {
     'abstractNote': 'abstract',
     'publicationTitle': 'journal',
     'DOI': 'doi',
-    'itemType': 'type',
+    'ISSN': 'issn',
     'ISBN': 'isbn',
     'creators': 'author',
 }
@@ -93,7 +94,7 @@ def zotero_data_to_papis_data(item):
     # Maybe zotero has good tags
     if isinstance(item.get('tags'), list):
         try:
-            data['tags'] = " ".join(item['tags'])
+            data['keywords'] = ', '.join([x['tag'] for x in item.get('tags')])
         except:
             pass
         del item['tags']
@@ -104,15 +105,42 @@ def zotero_data_to_papis_data(item):
     if item.get('attachments'):
         del item['attachments']
 
-    # still get all information from zotero
-    data.update(item)
-
     if data.get('author'):
         author_list = [author.get('lastName') + ", " + author.get('firstName') for author in data['author']]
         data['author'] = " and ".join(author_list)
 
-    ref = data.get('author') + data.get('date') + data.get('title')
+    if item.get('date'):
+        if ',' in item.get('date'):
+            data['year'] = item.get('date').split(',')[-1].strip()
+            # data['month'] = item.get('date').split(',')[0].strip()
+        else:
+            data['year'] = item.get('date')
+
+        del item['date']
+
+    if item.get('month'):
+        data['month'] = papis_zotero.tools.translate_month(item.get('month'))
+        del item['month']
+
+    if item.get('title'):
+        data['title'] = papis_zotero.tools.translate_title(item.get('title'))
+        del item['title']
+
+    if item.get('itemType'):
+        if item.get('itemType') == "journalArticle":
+            data['type'] = "article"
+        elif item.get('itemType') == "thesis":
+            data['type'] = "phdthesis"
+        else:
+            data['type'] = "misc"
+        del item['itemType']
+
+    # still get all information from zotero
+    data.update(item)
+
+    ref = data.get('author') + data.get('year') + data.get('title')
     data['ref'] = ref.replace(" ", "_")
+
     # and also get all infromation from crossref
     if data.get('doi'):
         crossref_data = papis.crossref.doi_to_data(data['doi'])
@@ -207,6 +235,7 @@ class PapisRequestHandler(http.server.BaseHTTPRequestHandler):
         logger.info("Adding paper from zotero connector")
         rawinput = self.read_input()
         data = json.loads(rawinput.decode('utf8'))
+        out_file = "~/.bib/papis.bib"
 
         for item in data['items']:
             files = []
@@ -252,10 +281,9 @@ class PapisRequestHandler(http.server.BaseHTTPRequestHandler):
             #     files,
             #     data=papis_item
             # )
-            print(papis_item)
             bibtex_doc = papis.document.Document(data=papis_item)
             bibtex_string = papis.document.to_bibtex(bibtex_doc)
-            os.system("echo \"{}\" >> ~/.bib/papis.bib".format(bibtex_string))
+            os.system("echo \"{}\" >> {}".format(bibtex_string, os.path.expanduser(out_file)))
 
         self.send_response(201)  # Created
         self.set_zotero_headers()

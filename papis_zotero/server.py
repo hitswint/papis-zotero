@@ -112,7 +112,6 @@ def zotero_data_to_papis_data(item):
     if item.get('date'):
         if ',' in item.get('date'):
             data['year'] = item.get('date').split(',')[-1].strip()
-            # data['month'] = item.get('date').split(',')[0].strip()
         else:
             data['year'] = item.get('date')
 
@@ -122,7 +121,7 @@ def zotero_data_to_papis_data(item):
         data['month'] = papis_zotero.tools.translate_month(item.get('month'))
         del item['month']
 
-    if item.get('title'):
+    if item.get('title'):   # 对英文没问题，无法保护中文标题中的英文。
         data['title'] = papis_zotero.tools.translate_title(item.get('title'))
         del item['title']
 
